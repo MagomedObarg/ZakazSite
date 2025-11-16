@@ -1,0 +1,15 @@
+/vendor/
+/vendor
+/.idea/
+/.vscode/
+.env
+.env.local
+.phpunit.result.cache
+.php_cs.cache
+phpunit.xml.cache
+composer.lock
+coverage/
+storage/
+bootstrap/cache/
+*.log
+*.sqlite
