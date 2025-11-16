@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Smooth transitions for better UX */
+@layer components {
+    .transition-smooth {
+        @apply transition-all duration-200 ease-out;
+    }
+
+    .focus-ring {
+        @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+    }
+}
+
+/* Print styles */
+@media print {
+    body {
+        @apply bg-white text-black;
+    }
+
+    nav,
+    footer,
+    .no-print {
+        @apply hidden;
+    }
+
+    .print-page-break {
+        @apply page-break-after;
+    }
+}
+
+/* Accessibility improvements */
+@layer components {
+    /* Skip to content link */
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+    }
+
+    .sr-only-focusable:active,
+    .sr-only-focusable:focus {
+        position: static;
+        width: auto;
+        height: auto;
+        padding: inherit;
+        margin: inherit;
+        overflow: visible;
+        clip: auto;
+        white-space: normal;
+    }
+}
+
+/* Animations */
+@layer components {
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-slide-down {
+        animation: slideDown 0.3s ease-out;
+    }
+}
+
+/* Loading spinner animation is built-in with Tailwind's animate-spin */
+
+/* Improved focus states for keyboard navigation */
+@layer components {
+    button:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+        @apply outline-none ring-2 ring-blue-500 ring-offset-2;
+    }
+}
+
+/* Dark mode support (optional) */
+@media (prefers-color-scheme: dark) {
+    /* Can be extended as needed */
+}

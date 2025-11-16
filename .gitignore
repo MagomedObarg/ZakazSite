@@ -13,3 +13,10 @@ storage/
 bootstrap/cache/
 *.log
 *.sqlite
+/node_modules/
+/public/build/
+/public/hot
+/.DS_Store
+/.env*.local
+npm-debug.log
+yarn-error.log
