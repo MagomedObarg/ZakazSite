@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\Handler;
 use App\Http\Request;
 use App\Http\Response;
 use App\Services\AnalysisService;
@@ -9,8 +10,11 @@ use RuntimeException;
 
 class AnalyzeController
 {
-    public function __construct(protected AnalysisService $analysis)
-    {
+    public function __construct(
+        protected AnalysisService $analysis,
+        protected ?Handler $exceptionHandler = null
+    ) {
+        $this->exceptionHandler = $exceptionHandler ?? new Handler();
     }
 
     public function __invoke(Request $request): Response
@@ -25,7 +29,15 @@ class AnalyzeController
             ]);
         }
 
+        $requestId = uniqid('req_', true);
+
         try {
+            $this->exceptionHandler->setContext([
+                'route' => 'POST /analyze',
+                'url' => $url,
+                'request_id' => $requestId,
+            ]);
+
             $result = $this->analysis->analyzeUrl($url);
 
             return Response::redirect(
@@ -35,18 +47,8 @@ class AnalyzeController
                     'analysis_id' => $result->id,
                 ]
             );
-        } catch (RuntimeException $exception) {
-            return Response::redirect('/', [
-                'errors' => [
-                    'general' => $exception->getMessage(),
-                ],
-            ]);
         } catch (\Throwable $exception) {
-            return Response::redirect('/', [
-                'errors' => [
-                    'general' => 'We were unable to analyze the procurement notice. Please try again later.',
-                ],
-            ])->withFlash('exception', $exception->getMessage());
+            return $this->exceptionHandler->render($request, $exception);
         }
     }
 }

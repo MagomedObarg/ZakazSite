@@ -50,3 +50,60 @@ Key environment variables:
 - **Snapshots** — deterministic JSON fixtures ensure that AI responses remain stable across runs without contacting external services.
 
 Run the entire suite frequently (`php artisan test`) to guarantee regressions are caught early.
+
+## Error Handling & Troubleshooting
+
+### Error Types and HTTP Status Codes
+
+The application uses centralized exception handling with specific error types:
+
+- **404 (Not Found)** — `ProcurementNotFoundException`: The procurement URL could not be accessed or the resource does not exist.
+- **422 (Unprocessable Entity)** — `ProcurementParseException`: The procurement document format is invalid or cannot be parsed.
+- **502 (Bad Gateway)** — `DeepSeekException`: The AI analysis service is unavailable or returned an error.
+- **500 (Internal Server Error)** — Generic fallback for unexpected errors.
+
+### Error Caching
+
+To prevent repeated failed requests to external services, error states are cached for **1 hour**. When an error occurs during procurement fetching or AI analysis:
+
+1. The error details are stored in the cache with the same key as a successful analysis would use.
+2. Subsequent requests for the same URL will retrieve the cached error immediately without re-hitting external services.
+3. The cached error includes the status code, error code, user-friendly message, and timestamp.
+
+**To clear cached errors manually:**
+
+```php
+// Via the analysis service flush method
+$app->analysis()->flush();
+```
+
+Or delete `database/database.sqlite` to reset both cached data and persisted analysis records.
+
+### Logs
+
+Application logs are written to `storage/logs/app.log` and include contextual information for debugging:
+
+- **Request ID** — Unique identifier for each request (format: `req_<timestamp><random>`)
+- **Route** — The endpoint that handled the request
+- **URL** — The procurement URL being analyzed
+- **Exception type** — Full class name of the thrown exception
+- **Message** — Error message and stack trace details
+
+**Log levels:**
+- `ERROR` — Exceptions and failures
+- `INFO` — Cached error retrievals and successful operations
+- `WARNING` — Potential issues that don't prevent execution
+
+### Common Issues
+
+**Problem:** Analysis fails with "Procurement notice could not be found"  
+**Solution:** Verify the URL is accessible and returns a 200 status. Check if the procurement notice is still published.
+
+**Problem:** Repeated "AI analysis service unavailable" errors  
+**Solution:** Check `DEEPSEEK_ENDPOINT` and `DEEPSEEK_API_KEY` in your `.env` file. Verify the DeepSeek API is operational. Clear error cache after fixing credentials.
+
+**Problem:** Parse errors on valid-looking procurement documents  
+**Solution:** The parser expects specific HTML structure (`<article class="procurement">`). Review `resources/examples/procurement-sample.html` for the expected format.
+
+**Problem:** Errors persist after fixing the underlying issue  
+**Solution:** Error responses are cached for 1 hour. Use `$app->analysis()->flush()` to clear the cache immediately.

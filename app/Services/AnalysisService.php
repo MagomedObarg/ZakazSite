@@ -6,7 +6,9 @@ use App\Contracts\AiClient;
 use App\Contracts\AnalysisResultStore;
 use App\Contracts\ProcurementFetcher;
 use App\Data\AnalysisResult;
+use App\Exceptions\CachedErrorException;
 use RuntimeException;
+use Throwable;
 
 class AnalysisService
 {
@@ -32,43 +34,91 @@ class AnalysisService
             $cached = $this->cache->get($cacheKey);
 
             if (is_array($cached)) {
+                if (isset($cached['is_error']) && $cached['is_error'] === true) {
+                    throw new CachedErrorException($cached);
+                }
+
                 return AnalysisResult::fromArray($cached)->flagAsCached();
             }
         }
 
-        $procurement = $this->procurementFetcher->fetch($url);
+        try {
+            $procurement = $this->procurementFetcher->fetch($url);
 
-        $prompt = $this->buildPrompt($procurement);
+            $prompt = $this->buildPrompt($procurement);
 
-        $aiResponse = $this->aiClient->analyze([
-            'prompt' => $prompt,
-            'procurement' => $procurement,
-        ]);
+            $aiResponse = $this->aiClient->analyze([
+                'prompt' => $prompt,
+                'procurement' => $procurement,
+            ]);
 
-        $analysis = [
-            'summary' => $aiResponse['summary'] ?? '',
-            'risks' => $aiResponse['risks'] ?? [],
-            'recommendations' => $aiResponse['recommendations'] ?? [],
-            'score' => $aiResponse['score'] ?? null,
+            $analysis = [
+                'summary' => $aiResponse['summary'] ?? '',
+                'risks' => $aiResponse['risks'] ?? [],
+                'recommendations' => $aiResponse['recommendations'] ?? [],
+                'score' => $aiResponse['score'] ?? null,
+            ];
+
+            $meta = array_merge($aiResponse['meta'] ?? [], [
+                'prompt' => $prompt,
+            ]);
+
+            $result = AnalysisResult::create(
+                $this->identifier($url, $procurement),
+                $url,
+                $procurement,
+                $analysis,
+                $meta,
+                false
+            );
+
+            $this->cache->put($cacheKey, $result->toArray(), 3600);
+            $this->results->save($result);
+
+            return $result;
+        } catch (Throwable $exception) {
+            $this->cacheError($cacheKey, $exception);
+            throw $exception;
+        }
+    }
+
+    protected function cacheError(string $cacheKey, Throwable $exception): void
+    {
+        $statusCode = 500;
+        $errorCode = 'INTERNAL_ERROR';
+        $userMessage = 'An unexpected error occurred while processing your request.';
+
+        if (method_exists($exception, 'getStatusCode')) {
+            $statusCode = $exception->getStatusCode();
+        }
+
+        if (method_exists($exception, 'getErrorCode')) {
+            $errorCode = $exception->getErrorCode();
+        } else {
+            $className = get_class($exception);
+            if (str_contains($className, 'ProcurementNotFoundException')) {
+                $errorCode = 'PROCUREMENT_NOT_FOUND';
+            } elseif (str_contains($className, 'ProcurementParseException')) {
+                $errorCode = 'PROCUREMENT_PARSE_ERROR';
+            } elseif (str_contains($className, 'DeepSeekException')) {
+                $errorCode = 'AI_SERVICE_ERROR';
+            }
+        }
+
+        if (method_exists($exception, 'getUserMessage')) {
+            $userMessage = $exception->getUserMessage();
+        }
+
+        $errorData = [
+            'is_error' => true,
+            'status_code' => $statusCode,
+            'error_code' => $errorCode,
+            'user_message' => $userMessage,
+            'exception_message' => $exception->getMessage(),
+            'cached_at' => date('Y-m-d H:i:s'),
         ];
 
-        $meta = array_merge($aiResponse['meta'] ?? [], [
-            'prompt' => $prompt,
-        ]);
-
-        $result = AnalysisResult::create(
-            $this->identifier($url, $procurement),
-            $url,
-            $procurement,
-            $analysis,
-            $meta,
-            false
-        );
-
-        $this->cache->put($cacheKey, $result->toArray(), 3600);
-        $this->results->save($result);
-
-        return $result;
+        $this->cache->put($cacheKey, $errorData, 3600);
     }
 
     public function find(string $id): ?AnalysisResult
