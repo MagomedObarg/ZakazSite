@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Contracts\AiClient;
+use App\Exceptions\DeepSeekException;
 use App\Support\Http;
-use RuntimeException;
 
 class DeepSeekService implements AiClient
 {
@@ -40,7 +40,7 @@ class DeepSeekService implements AiClient
         ]);
 
         if ($response->failed()) {
-            throw new RuntimeException('DeepSeek API responded with failure status: ' . $response->status());
+            throw new DeepSeekException('DeepSeek API responded with failure status: ' . $response->status());
         }
 
         $body = $response->json();

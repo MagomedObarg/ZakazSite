@@ -12,7 +12,8 @@ class Request
         protected array $query = [],
         protected array $input = [],
         protected array $json = [],
-        protected ?SessionStore $session = null
+        protected ?SessionStore $session = null,
+        protected array $headers = []
     ) {
         $this->method = strtoupper($method);
     }
@@ -25,7 +26,8 @@ class Request
             $payload['query'] ?? [],
             $payload['input'] ?? [],
             $payload['json'] ?? [],
-            $session
+            $session,
+            $payload['headers'] ?? []
         );
     }
 
@@ -57,6 +59,14 @@ class Request
     public function json(): array
     {
         return $this->json;
+    }
+
+    public function header(string $key, mixed $default = null): mixed
+    {
+        $key = strtolower($key);
+        $normalizedHeaders = array_change_key_case($this->headers, CASE_LOWER);
+
+        return $normalizedHeaders[$key] ?? $default;
     }
 
     public function session(): SessionStore

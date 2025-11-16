@@ -1,8 +1,8 @@
 <?php
 
+use App\Exceptions\DeepSeekException;
 use App\Services\DeepSeekService;
 use App\Support\Http;
-use RuntimeException;
 
 it('constructs DeepSeek requests with auth headers and parses the response', function () {
     $captured = [];
@@ -45,5 +45,5 @@ it('throws when DeepSeek responds with an error status', function () {
     $service = new DeepSeekService('https://api.deepseek.test/v1/analyze', 'test-api-key');
 
     expect(fn () => $service->analyze(['prompt' => 'x', 'procurement' => []]))
-        ->toThrow(RuntimeException::class, 'DeepSeek API responded with failure status: 500');
+        ->toThrow(DeepSeekException::class, 'DeepSeek API responded with failure status: 500');
 });

@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\Handler;
 use App\Http\Request;
 use App\Http\Response;
 use App\Services\AnalysisService;
-use RuntimeException;
 
 class AnalyzeController
 {
-    public function __construct(protected AnalysisService $analysis)
-    {
+    public function __construct(
+        protected AnalysisService $analysis,
+        protected ?Handler $exceptionHandler = null
+    ) {
+        $this->exceptionHandler = $exceptionHandler ?? new Handler();
     }
 
     public function __invoke(Request $request): Response
@@ -27,22 +30,20 @@ class AnalyzeController
         }
 
         try {
+            $this->exceptionHandler->setContext([
+                'route' => 'POST /api/analyze',
+                'url' => $url,
+                'request_id' => uniqid('req_', true),
+            ]);
+
             $result = $this->analysis->analyzeUrl($url);
 
             return Response::json([
                 'status' => 'ok',
                 'data' => $result->toArray(),
             ], 200);
-        } catch (RuntimeException $exception) {
-            return Response::json([
-                'status' => 'error',
-                'message' => $exception->getMessage(),
-            ], 400);
         } catch (\Throwable $exception) {
-            return Response::json([
-                'status' => 'error',
-                'message' => 'Unable to process the procurement notice at this time.',
-            ], 500);
+            return $this->exceptionHandler->render($request, $exception);
         }
     }
 }

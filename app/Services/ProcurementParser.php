@@ -3,10 +3,11 @@
 namespace App\Services;
 
 use App\Contracts\ProcurementFetcher;
+use App\Exceptions\ProcurementNotFoundException;
+use App\Exceptions\ProcurementParseException;
 use App\Support\Http;
 use DOMDocument;
 use DOMXPath;
-use RuntimeException;
 
 class ProcurementParser implements ProcurementFetcher
 {
@@ -14,8 +15,12 @@ class ProcurementParser implements ProcurementFetcher
     {
         $response = Http::get($url);
 
+        if ($response->status() === 404) {
+            throw new ProcurementNotFoundException('Procurement notice not found at the specified URL.');
+        }
+
         if ($response->failed()) {
-            throw new RuntimeException('Failed to download procurement notice.');
+            throw new ProcurementNotFoundException('Failed to download procurement notice.');
         }
 
         return $this->parse($response->body());
@@ -33,7 +38,7 @@ class ProcurementParser implements ProcurementFetcher
         libxml_use_internal_errors($previous);
 
         if (! $loaded) {
-            throw new RuntimeException('Invalid procurement document received.');
+            throw new ProcurementParseException('Invalid procurement document received.');
         }
 
         $xpath = new DOMXPath($document);
@@ -41,7 +46,7 @@ class ProcurementParser implements ProcurementFetcher
         $article = $xpath->query($articleQuery)->item(0);
 
         if (! $article) {
-            throw new RuntimeException('Unable to locate procurement container.');
+            throw new ProcurementParseException('Unable to locate procurement container in the document.');
         }
 
         $title = trim($xpath->evaluate('string(.//h1)', $article));
