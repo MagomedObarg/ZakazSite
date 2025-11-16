@@ -1,0 +1,33 @@
+#!/usr/bin/env php
+<?php
+
+$autoload = __DIR__ . '/vendor/autoload.php';
+
+if (! file_exists($autoload)) {
+    fwrite(STDERR, "Composer dependencies are not installed. Run 'composer install' first." . PHP_EOL);
+    exit(1);
+}
+
+require $autoload;
+
+$command = $argv[1] ?? null;
+
+switch ($command) {
+    case 'test':
+        $binary = __DIR__ . '/vendor/bin/pest';
+        if (! file_exists($binary)) {
+            $binary = __DIR__ . '/vendor/bin/phpunit';
+        }
+
+        if (! file_exists($binary)) {
+            fwrite(STDERR, "Unable to locate pest or phpunit binary. Did you run composer install?" . PHP_EOL);
+            exit(1);
+        }
+
+        passthru(PHP_BINARY . ' ' . $binary, $status);
+        exit($status ?? 0);
+
+    default:
+        fwrite(STDERR, "Unknown command. Available commands: test" . PHP_EOL);
+        exit(1);
+}
